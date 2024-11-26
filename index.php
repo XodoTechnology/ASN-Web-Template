@@ -197,9 +197,24 @@ $defaultTheme = DEFAULT_THEME;
                 <div class="policy-content">
                     <?php
                     if (file_exists(PEERING_POLICY_FILE)) {
-                        echo '<div class="markdown">';
-                        echo nl2br(htmlspecialchars(file_get_contents(PEERING_POLICY_FILE)));
-                        echo '</div>';
+                        if (file_exists('vendor/autoload.php')) {
+                            require_once 'vendor/autoload.php';
+                            $Parsedown = new Parsedown();
+                            echo $Parsedown->text(file_get_contents(PEERING_POLICY_FILE));
+                        } else {
+                            // Fallback to basic formatting if Parsedown is not installed
+                            echo '<div class="markdown">';
+                            $content = file_get_contents(PEERING_POLICY_FILE);
+                            // Basic Markdown-like formatting
+                            $content = preg_replace('/^# (.*?)$/m', '<h1>$1</h1>', $content);
+                            $content = preg_replace('/^## (.*?)$/m', '<h2>$1</h2>', $content);
+                            $content = preg_replace('/^### (.*?)$/m', '<h3>$1</h3>', $content);
+                            $content = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $content);
+                            $content = preg_replace('/\*(.*?)\*/', '<em>$1</em>', $content);
+                            $content = preg_replace('/^\- (.*?)$/m', '<li>$1</li>', $content);
+                            echo nl2br($content);
+                            echo '</div>';
+                        }
                     }
                     ?>
                 </div>

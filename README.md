@@ -1,94 +1,100 @@
 # ASN Network Information Web Template
 
-A clean, responsive web template for displaying ASN (Autonomous System Number) network information using PeeringDB data.
-
-## Demo
-
-Check out the live demo at [https://47272.net/asn-web-template](https://47272.net/asn-web-template)
+A lightweight, customizable web template designed for displaying ASN (Autonomous System Number) network information. Built specifically for shared hosting environments like cPanel, this template requires minimal dependencies and works with basic PHP setups.
 
 ## Features
 
-- Clean, responsive design
-- Dark/Light theme toggle
-- Automatic PeeringDB data fetching
-- Customizable appearance
-- Mobile-friendly interface
-- File-based caching system
-- Markdown support for peering policy
+- **Lightweight & Fast**: Minimal dependencies, vanilla JavaScript, and optimized for shared hosting
+- **PeeringDB Integration**: Automatic data fetching from PeeringDB API
+- **Theme Support**: Light/dark mode with system preference detection
+- **Responsive Design**: Mobile-friendly layout that works across all devices
+- **Easy Configuration**: Simple PHP configuration file
+- **Shared Hosting Ready**: Works out of the box on cPanel and similar environments
+- **No Build Process**: Direct deployment without compilation steps
 
 ## Requirements
 
-- PHP 7.4 or higher
-- cURL extension enabled
-- Write permissions for cache directory
+- PHP 7.4+ (compatible with most shared hosting providers)
+- Basic web server (Apache/Nginx)
+- HTTPS for secure API calls (optional but recommended)
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
-```bash
-git clone https://github.com/Lostepic/ASN-Web-Template.git
-```
-
-2. Configure your web server to serve the directory
-
-3. Copy `config.example.php` to `config.php` and edit the settings
-
-4. Ensure the cache directory is writable:
-```bash
-chmod 755 cache
-```
+1. Download the latest release
+2. Upload files to your web hosting directory
+3. Edit `config.php` with your network details
+4. Visit your website!
 
 ## Configuration
 
-Edit `config.php` to customize your installation:
+Edit `config.php` to customize your template:
 
 ```php
 // Network Configuration
-define('ASN', '47272');                    // Your ASN number
-define('PEERINGDB_NET_ID', '34220');       // Your PeeringDB Network ID
-define('NETWORK_NAME', 'HYEHOST');         // Your network name
-
-// Network Tools URLs (optional)
-define('BGPTOOLS_URL', '');                // BGP.tools URL
-define('BGPHE_URL', '');                   // BGP Hurricane Electric URL
-define('LOOKING_GLASS_URL', '');           // Your Looking Glass URL
+define('ASN', '47272');
+define('PEERINGDB_NET_ID', '34220');
+define('NETWORK_NAME', 'HYEHOST');
 
 // Theme Configuration
-define('PRIMARY_COLOR', '#ff5733');        // Primary color for UI elements
-define('LOGO_PATH', '');                   // Path to your logo (empty for text)
-define('LOGO_HEIGHT', '40');               // Logo height in pixels
-define('DEFAULT_THEME', 'light');          // Default theme ('light' or 'dark')
+define('PRIMARY_COLOR', '#ff5733');
+define('LOGO_PATH', '');
+define('LOGO_HEIGHT', '40');
+define('DEFAULT_THEME', 'light');
 
 // Display Configuration
-define('SORT_BY_SPEED', true);             // Sort IX list by speed
-define('SORT_ALPHABETICALLY', true);       // Sort IX list alphabetically
-define('SHOW_PEERING_POLICY', true);       // Show peering policy tab
-define('PEERING_POLICY_FILE', 'policy.md'); // Path to policy file
-
-// Footer Configuration
-define('SHOW_GITHUB_LINK', true);          // Show GitHub link in footer
-define('SHOW_CREDITS', true);              // Show credits in footer
-define('COPYRIGHT_TEXT', 'Your Company');   // Copyright text
-define('GITHUB_REPO_URL', '');             // Your GitHub repo URL
-
-// Cookie Consent Configuration
-define('SHOW_COOKIE_CONSENT', true);       // Show cookie consent banner
-define('COOKIE_CONSENT_TEXT', 'This website uses cookies to enhance your experience.');
-define('COOKIE_POLICY_URL', '');           // URL to your cookie policy (optional)
+define('SORT_BY_SPEED', true);
+define('SORT_ALPHABETICALLY', true);
+define('SHOW_PEERING_POLICY', true);
 ```
 
-## Customizing Peering Policy
+## Installation on Shared Hosting
 
-Create a `policy.md` file in the root directory with your peering policy in Markdown format.
+1. **cPanel Installation**:
+   - Log in to your cPanel account
+   - Navigate to File Manager
+   - Upload the template files to your desired directory
+   - Set file permissions to 644 for files and 755 for directories
 
-## Cache
+2. **Direct FTP Upload**:
+   - Connect to your hosting via FTP
+   - Upload all files to your web directory
+   - Ensure proper file permissions
 
-PeeringDB data is cached for 6 hours by default. To clear the cache, delete files in the `cache` directory.
+## Optional Features
+
+- **Markdown Support**: If your hosting supports Composer, you can install Parsedown for enhanced policy formatting
+- **Cookie Consent**: Built-in cookie notice that's easy to configure
+- **Custom Network Tools**: Add links to BGP tools, Looking Glass, etc.
+
+## Performance
+
+- No database required
+- Minimal server requirements
+- Cached API responses
+- Optimized assets
+- Fast page load times
+
+## Security
+
+- Input sanitization
+- No external dependencies by default
+- Configurable cookie consent
+- Safe for shared hosting environments
+
+## Demo
+
+Visit [47272.net/asn-web-template](https://47272.net/asn-web-template) to see a live demo.
+
+## Support
+
+- Create an issue on GitHub
+- Compatible with most shared hosting providers
+- Tested on popular cPanel hosts
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License - feel free to use for your network!
 
-## Credits
+---
 
-Created by [AaranCloud](https://github.com/Lostepic) for [HYEHOST](https://hyehost.org).
+Made with ❤️ for the network community
