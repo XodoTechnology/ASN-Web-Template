@@ -8,6 +8,8 @@ define('NETWORK_NAME', 'My Network Information Page');     // Your network name
 define('BGPTOOLS_URL', 'https://bgp.tools/as/47272');            // BGP.tools URL (e.g., https://bgp.tools/as/47272)
 define('BGPHE_URL', 'https://bgp.he.net/AS47272');               // BGP Hurricane Electric URL
 define('LOOKING_GLASS_URL', 'https://lg.xyz.com');       // Your Looking Glass URL
+define('PEER_EMAIL', 'peering@mynetwork.com'); // peering email address
+define('ABUSE_EMAIL', 'abuse@mynetwork.com'); // abuse email address
 
 // Theme Configuration
 define('PRIMARY_COLOR', '#20f9ff'); // Primary color for buttons, links, etc.
