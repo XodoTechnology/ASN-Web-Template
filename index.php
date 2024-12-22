@@ -2,8 +2,24 @@
 require_once 'config.php';
 require_once 'cache.php';
 
+function _xe($e) {
+    return strrev(base64_encode(str_rot13($e)));
+}
+
+function _de($e) {
+    return str_rot13(base64_decode(strrev($e)));
+}
+
+// Encode the emails once when the page loads
+$encoded_peer_email = _xe(PEER_EMAIL);
+$encoded_abuse_email = _xe(ABUSE_EMAIL);
+
+// Get PeeringDB data
 $data = getCachedData();
 $networkInfo = $data['data'][0] ?? null;
+
+// Get BGP.Tools data
+$bgpToolsData = getBGPToolsData();
 
 // Calculate totals
 $totalIXs = count($networkInfo['netixlan_set'] ?? []);
@@ -16,6 +32,9 @@ if ($networkInfo && isset($networkInfo['netixlan_set'])) {
 
 // Set theme based on DEFAULT_THEME configuration
 $defaultTheme = DEFAULT_THEME;
+
+// Get PeeringDB data for the ASN lookup
+$peeringData = fetchPeeringDBData();
 ?>
 <!DOCTYPE html>
 <html lang="en" data-theme="<?php echo $defaultTheme; ?>">
@@ -38,7 +57,8 @@ $defaultTheme = DEFAULT_THEME;
         <div class="header-container">
             <div class="logo-container">
                 <?php if (!empty(LOGO_PATH)): ?>
-                    <img src="<?php echo LOGO_PATH; ?>" alt="<?php echo NETWORK_NAME; ?> Logo" class="logo">
+                    <img src="<?php echo LOGO_DARK_PATH; ?>" alt="<?php echo NETWORK_NAME; ?> Logo" class="logo theme-dark-logo">
+                    <img src="<?php echo LOGO_PATH; ?>" alt="<?php echo NETWORK_NAME; ?> Logo" class="logo theme-light-logo">
                 <?php else: ?>
                     <h1 class="site-title"><?php echo NETWORK_NAME; ?></h1>
                 <?php endif; ?>
@@ -58,8 +78,8 @@ $defaultTheme = DEFAULT_THEME;
             <h2>Network Summary</h2>
             <div class="summary-grid">
                 <div class="summary-item">
-                    <h4>ASN</h4>
-                    <p>AS<?php echo ASN; ?></p>
+                    <h4>Network name</h4>
+                    <p><?php echo NETWORK_NAME; ?></p>
                 </div>
                 <div class="summary-item">
                     <h4>Total IX Connections</h4>
@@ -75,6 +95,28 @@ $defaultTheme = DEFAULT_THEME;
                     <p><?php echo htmlspecialchars($networkInfo['irr_as_set']); ?></p>
                 </div>
                 <?php endif; ?>
+                <?php if ($bgpToolsData): ?>
+                <div class="summary-item">
+                    <h4>BGP Peers</h4>
+                    <p><?php echo number_format($bgpToolsData['peers'] ?? 0); ?></p>
+                </div>
+                <div class="summary-item">
+                    <h4>Upstream Providers</h4>
+                    <p><?php echo number_format($bgpToolsData['upstreams'] ?? 0); ?></p>
+                </div>
+                <div class="summary-item">
+                    <h4>IPv4 Prefixes</h4>
+                    <p><?php echo number_format($bgpToolsData['prefixes']['v4'] ?? 0); ?></p>
+                </div>
+                <div class="summary-item">
+                    <h4>IPv6 Prefixes</h4>
+                    <p><?php echo number_format($bgpToolsData['prefixes']['v6'] ?? 0); ?></p>
+                </div>
+                <div class="summary-item">
+                    <h4>Downstream ASNs</h4>
+                    <p><?php echo number_format($bgpToolsData['downstreams'] ?? 0); ?></p>
+                </div>
+                <?php endif; ?>
                 <?php if (!empty($networkInfo['info_prefixes4'])): ?>
                 <div class="summary-item">
                     <h4>IPv4 Prefix Limit</h4>
@@ -87,6 +129,16 @@ $defaultTheme = DEFAULT_THEME;
                     <p><?php echo number_format($networkInfo['info_prefixes6']); ?></p>
                 </div>
                 <?php endif; ?>
+                <div class="contact-info">
+                    <div class="summary-item">
+                        <h4>Abuse Contact</h4>
+                        <p><span class="obfuscated" data-encoded="<?php echo $encoded_abuse_email; ?>">Enable JavaScript to view</span></p>
+                    </div>
+                    <div class="summary-item">
+                        <h4>Peering Contact</h4>
+                        <p><span class="obfuscated" data-encoded="<?php echo $encoded_peer_email; ?>">Enable JavaScript to view</span></p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -98,9 +150,20 @@ $defaultTheme = DEFAULT_THEME;
                 <button class="tab-button" onclick="openTab(this, 'facilities')">
                     <i class="fas fa-building"></i> Facilities
                 </button>
+                <button class="tab-button" onclick="openTab(this, 'communities')">
+                    <i class="fas fa-project-diagram"></i> BGP Communities
+                </button>
                 <?php if (SHOW_PEERING_POLICY && file_exists(PEERING_POLICY_FILE)): ?>
                 <button class="tab-button" onclick="openTab(this, 'peering-policy')">
                     <i class="fas fa-handshake"></i> Peering Policy
+                </button>
+                <?php endif; ?>
+                <button class="tab-button" onclick="openTab(this, 'bgp-status')">
+                    <i class="fas fa-chart-line"></i> BGP Status
+                </button>
+                <?php if ($birdData): ?>
+                <button class="tab-button" onclick="openTab(this, 'bgp-routes')">
+                    <i class="fas fa-route"></i> BGP Routes
                 </button>
                 <?php endif; ?>
             </div>
@@ -121,42 +184,42 @@ $defaultTheme = DEFAULT_THEME;
                         });
                     }
                     ?>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Exchange</th>
-                            <th>Speed</th>
-                            <th>IPv4</th>
-                            <th>IPv6</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($ixList as $ix): ?>
-                        <tr>
-                            <td>
-                                <a href="https://www.peeringdb.com/ix/<?php echo htmlspecialchars($ix['ix_id']); ?>" 
-                                   target="_blank" 
-                                   class="pdb-link">
-                                    <?php echo htmlspecialchars($ix['name']); ?>
-                                    <i class="fas fa-external-link-alt fa-xs"></i>
-                                </a>
-                            </td>
-                            <td><?php 
-                                $speed = $ix['speed'];
-                                if ($speed >= 1000) {
-                                    echo number_format($speed / 1000, 0) . ' Gbps';
-                                } else {
-                                    echo number_format($speed, 0) . ' Mbps';
-                                }
-                            ?></td>
-                            <td><?php echo !empty($ix['ipaddr4']) ? htmlspecialchars($ix['ipaddr4']) : '-'; ?></td>
-                            <td><?php echo !empty($ix['ipaddr6']) ? htmlspecialchars($ix['ipaddr6']) : '-'; ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Exchange</th>
+                                <th>Speed</th>
+                                <th>IPv4</th>
+                                <th>IPv6</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($ixList as $ix): ?>
+                            <tr>
+                                <td>
+                                    <a href="https://www.peeringdb.com/ix/<?php echo htmlspecialchars($ix['ix_id']); ?>" 
+                                       target="_blank"
+                                       class="pdb-link">
+                                        <?php echo htmlspecialchars($ix['name']); ?>
+                                        <i class="fas fa-external-link-alt fa-xs"></i>
+                                    </a>
+                                </td>
+                                <td><?php 
+                                    $speed = $ix['speed'];
+                                    if ($speed >= 1000) {
+                                        echo number_format($speed / 1000, 0) . ' Gbps';
+                                    } else {
+                                        echo number_format($speed, 0) . ' Mbps';
+                                    }
+                                ?></td>
+                                <td><?php echo !empty($ix['ipaddr4']) ? htmlspecialchars($ix['ipaddr4']) : '-'; ?></td>
+                                <td><?php echo !empty($ix['ipaddr6']) ? htmlspecialchars($ix['ipaddr6']) : '-'; ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 <?php else: ?>
-                <p>No Internet Exchange Points found.</p>
+                    <p>No Internet Exchange Points found.</p>
                 <?php endif; ?>
             </div>
 
@@ -192,6 +255,62 @@ $defaultTheme = DEFAULT_THEME;
                 <?php endif; ?>
             </div>
 
+            <div id="communities" class="tab-content">
+                <?php
+                $communities = json_decode(file_get_contents('communities.json'), true);
+                $sections = [
+                    'informational' => [
+                        'title' => 'Informational Communities',
+                        'subsections' => ['origin', 'region']
+                    ],
+                    'ixp' => [
+                        'title' => 'IXP Communities',
+                        'subsections' => ['exchanges']
+                    ],
+                    'action' => [
+                        'title' => 'Action Communities',
+                        'subsections' => ['routing']
+                    ]
+                ];
+                
+                foreach ($sections as $section => $info):
+                ?>
+                <div class="communities-section">
+                    <h3><?php echo $info['title']; ?></h3>
+                    <table class="communities-table">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Standard Community</th>
+                                <th>Large Community</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            foreach ($info['subsections'] as $subsection):
+                                if (isset($communities[$section][$subsection])):
+                                    foreach ($communities[$section][$subsection] as $community):
+                            ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($community['description']); ?></td>
+                                <?php if(!empty($community['communities']['standard'])){ ?>
+                                <td><code><?php echo htmlspecialchars($community['communities']['standard']); ?></code></td>
+                                <?php }else{ ?>
+                                <td></td>
+                                <?php } ?>
+                                <td><code><?php echo htmlspecialchars($community['communities']['large']); ?></code></td>
+                            </tr>
+                            <?php 
+                                    endforeach;
+                                endif;
+                            endforeach;
+                            ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
             <?php if (SHOW_PEERING_POLICY && file_exists(PEERING_POLICY_FILE)): ?>
             <div id="peering-policy" class="tab-content">
                 <div class="policy-content">
@@ -220,11 +339,55 @@ $defaultTheme = DEFAULT_THEME;
                 </div>
             </div>
             <?php endif; ?>
+
+            <div id="bgp-status" class="tab-content">
+                <h3>BGP Status</h3>
+                <div class="router-selector">
+                    <?php foreach ($BIRDWATCHER_ROUTERS as $routerId => $router): ?>
+                        <button class="btn btn-secondary router-button" data-router="<?php echo htmlspecialchars($routerId); ?>">
+                            <?php echo htmlspecialchars($router['name']); ?>
+                            <span class="loading-indicator" style="display: none;">
+                                <i class="fas fa-sync-alt fa-spin"></i>
+                            </span>
+                        </button>
+                    <?php endforeach; ?>
+                </div>
+                <div id="router-status-container">
+                    <p class="select-router-message">Select a router to view its BGP status</p>
+                </div>
+                <template id="router-status-template">
+                    <div class="router-status">
+                        <h4></h4>
+                        <div class="protocol-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Family</th>
+                                        <th>State</th>
+                                        <th>Imported</th>
+                                        <th>Filtered</th>
+                                        <th>Exported</th>
+                                        <th>Links</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                            </table>
+                            <div class="last-update"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </div>
 
         <footer class="footer">
-            <div class="last-updated">
-                Last updated: <?php echo date('Y-m-d H:i:s', filemtime(CACHE_FILE)); ?>
+            <div class="last-update">
+                Last Updated: <?php echo date('Y-m-d H:i:s T', filemtime(CACHE_FILE)); ?>
+                (<span id="countdown" data-last-update="<?php echo filemtime(CACHE_FILE); ?>" data-cache-time="3600">Calculating...</span>)
+                <button id="refresh-cache" class="refresh-button" title="Refresh cache">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
             </div>
             <div class="footer-links">
                 <a href="https://www.peeringdb.com/net/<?php echo PEERINGDB_NET_ID; ?>" class="pdb-link" target="_blank">
@@ -259,8 +422,8 @@ $defaultTheme = DEFAULT_THEME;
                 &copy; <?php echo date('Y'); ?> <?php echo COPYRIGHT_TEXT; ?>
             </div>
             <?php if (defined('SHOW_CREDITS') && SHOW_CREDITS): ?>
-            <div class="credits">
-                Created by <a href="https://github.com/Lostepic" target="_blank" class="pdb-link">AaranCloud</a> for <a href="https://hyehost.org" target="_blank" class="pdb-link">HYEHOST</a>
+            <div class="credits"><!-- Removing this means you're a dick :) -->
+                Created by <a href="https://github.com/Lostepic" target="_blank" class="pdb-link">AaranCloud</a> Modified by <a href="https://www.xodo.net" target="_blank" class="pdb-link">Xodo Technology, LLC.</a></a>
             </div>
             <?php endif; ?>
         </footer>
@@ -347,6 +510,187 @@ $defaultTheme = DEFAULT_THEME;
                 document.getElementById('accept-cookies').addEventListener('click', function() {
                     setCookie('cookie-consent', 'accepted', 365);
                     cookieConsent.style.display = 'none';
+                });
+            }
+
+            // Email deobfuscation
+            const obfuscated = document.querySelectorAll('.obfuscated');
+            obfuscated.forEach(function(element) {
+                const encoded = element.getAttribute('data-encoded');
+                if (encoded) {
+                    try {
+                        const reversed = encoded.split('').reverse().join('');
+                        const decoded = atob(reversed);
+                        const email = decoded.replace(/[a-zA-Z]/g, function(c) {
+                            return String.fromCharCode((c <= 'Z' ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
+                        });
+                        element.innerHTML = `<a href="mailto:${email}">${email}</a>`;
+                    } catch (e) {
+                        console.error('Failed to decode email:', e);
+                    }
+                }
+            });
+
+            // Countdown timer
+            function updateCountdown() {
+                const countdownElement = document.getElementById('countdown');
+                const lastUpdate = parseInt(countdownElement.getAttribute('data-last-update')) * 1000; // Convert to milliseconds
+                const cacheTime = parseInt(countdownElement.getAttribute('data-cache-time')); // In seconds
+                const now = new Date().getTime();
+                const nextUpdate = lastUpdate + (cacheTime * 1000);
+                const timeLeft = nextUpdate - now;
+
+                if (timeLeft <= 0) {
+                    countdownElement.textContent = 'Updating...';
+                    return;
+                }
+
+                const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+                countdownElement.textContent = ` Next update in ${minutes}m ${seconds}s `;
+            }
+
+            // Update countdown every second
+            setInterval(updateCountdown, 1000);
+            updateCountdown(); // Initial call
+        });
+
+        // Helper function to reverse string
+        function strrev(str) {
+            return str.split('').reverse().join('');
+        }
+
+        // Cache refresh functionality
+        document.getElementById('refresh-cache').addEventListener('click', function() {
+            this.classList.add('spinning');
+            this.disabled = true;
+            
+            fetch('refresh_cache.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error refreshing cache: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error refreshing cache: ' + error);
+                })
+                .finally(() => {
+                    this.classList.remove('spinning');
+                    this.disabled = false;
+                });
+        });
+
+        // BGP status per router
+        document.querySelectorAll('.router-button').forEach(button => {
+            button.addEventListener('click', async function() {
+                const routerId = this.dataset.router;
+                const container = document.getElementById('router-status-container');
+                const loadingIndicator = this.querySelector('.loading-indicator');
+                
+                // Update button states
+                document.querySelectorAll('.router-button').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.querySelector('.loading-indicator').style.display = 'none';
+                });
+                this.classList.add('active');
+                loadingIndicator.style.display = 'inline-block';
+                
+                try {
+                    const response = await fetch(`fetch_bgp_status.php?router=${routerId}`);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    // Clear existing content
+                    container.innerHTML = '';
+                    
+                    // Clone template
+                    const template = document.getElementById('router-status-template');
+                    const statusElement = template.content.cloneNode(true);
+                    
+                    // Update router name
+                    statusElement.querySelector('h4').textContent = data.router.name;
+                    
+                    const tbody = statusElement.querySelector('tbody');
+                    
+                    // Add all protocols
+                    if (data.router.protocols) {
+                        data.router.protocols.forEach(protocol => {
+                            const tr = document.createElement('tr');
+                            tr.className = protocol.state.toLowerCase() === 'up' ? 'session-up' : 'session-down';
+                            tr.innerHTML = `
+                                <td>${protocol.name}</td>
+                                <td>${protocol.family}</td>
+                                <td>${protocol.state}</td>
+                                <td>${(protocol.routes.imported || 0).toLocaleString()}</td>
+                                <td>${(protocol.routes.filtered || 0).toLocaleString()}</td>
+                                <td>${(protocol.routes.exported || 0).toLocaleString()}</td>
+                                <td>${createPeerLinks(protocol.name)}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                    
+                    // Add last update time
+                    const lastUpdate = statusElement.querySelector('.last-update');
+                    lastUpdate.textContent = `Last Updated: ${new Date(data.timestamp * 1000).toLocaleString()}`;
+                    
+                    container.appendChild(statusElement);
+                } catch (error) {
+                    container.innerHTML = `<p class="error-message">Error loading BGP status: ${error.message}</p>`;
+                } finally {
+                    loadingIndicator.style.display = 'none';
+                }
+            });
+        });
+
+        function extractASN(peerName) {
+            // Extract ASN from peer name (assuming format contains AS number)
+            const match = peerName.match(/AS(\d+)/i);
+            return match ? match[1] : null;
+        }
+
+        function createPeerLinks(peerName) {
+            const asn = extractASN(peerName);
+            if (!asn) return '';
+            
+            return `
+                <div class="peer-links">
+                    <button class="btn btn-sm dropdown-toggle">
+                        <i class="fas fa-external-link-alt"></i>
+                    </button>
+                    <div class="dropdown-menu">
+                        <a href="https://bgp.tools/as/${asn}" target="_blank" class="dropdown-item">
+                            <i class="fas fa-chart-line"></i> BGP.Tools
+                        </a>
+                        <a href="https://peerwith.me/${asn}" target="_blank" class="dropdown-item">
+                            <i class="fas fa-database"></i> PeeringDB
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Add click handler for dropdowns
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.dropdown-toggle')) {
+                const dropdown = e.target.closest('.peer-links').querySelector('.dropdown-menu');
+                // Close all other dropdowns
+                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                    if (menu !== dropdown) menu.classList.remove('show');
+                });
+                // Toggle this dropdown
+                dropdown.classList.toggle('show');
+            } else if (!e.target.closest('.dropdown-menu')) {
+                // Close all dropdowns when clicking outside
+                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                    menu.classList.remove('show');
                 });
             }
         });
