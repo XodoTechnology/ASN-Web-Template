@@ -1,0 +1,74 @@
+{
+    "informational": {
+        "origin": [
+            {
+                "description": "Originated By XYZ",
+                "communities": {
+                    "standard": "65535:100",
+                    "large": "65535:411:100"
+                }
+            }
+        ],
+        "prefix": [
+            {
+                "description": "RPKI Valid (Pass)",
+                "communities": {
+                    "standard": "",
+                    "large": "65535:511:100"
+                }
+            },
+            {
+                "description": "RPKI Unknown (Pass)",
+                "communities": {
+                    "standard": "",
+                    "large": "65535:511:101"
+                }
+            },
+            {
+                "description": "RPKI Invalid (Fail)",
+                "communities": {
+                    "standard": "",
+                    "large": "65535:511:102"
+                }
+            }
+        ],
+        "region": [
+            {
+                "description": "Learned in XYZ",
+                "communities": {
+                    "standard": "65535:101",
+                    "large": "65535:411:101"
+                }
+            }
+        ]
+    },
+    "ixp": {
+        "exchanges": [
+            {
+                "description": "Learned at XYZ",
+                "communities": {
+                    "standard": "",
+                    "large": "65530:412:123"
+                }
+            },
+        ]
+    },
+    "action": {
+        "routing": [
+            {
+                "description": "Prepend $n times to ALL Exchange (3 MAX)",
+                "communities": {
+                    "standard": "",
+                    "large": "65530:73$n:999"
+                }
+            },
+            {
+                "description": "Blackhome Prefix",
+                "communities": {
+                    "standard": "65530:666",
+                    "large": "65530:911:666"
+                }
+            }
+        ]
+    }
+}
